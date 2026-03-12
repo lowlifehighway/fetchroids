@@ -1,0 +1,24 @@
+{
+  "name": "fetchroids",
+  "version": "1.0.0",
+  "description": "A fetch wrapper package to modernize fetch",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "fetchroids",
+    "fetch",
+    "wrapper",
+    "modern",
+    "network",
+    "client",
+    "api",
+    "browser",
+    "request",
+    "http"
+  ],
+  "author": "Victor Ayoola",
+  "license": "MIT"
+}
