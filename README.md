@@ -17,6 +17,12 @@ A lightweight, modern fetch wrapper with automatic retries, timeout support, and
 npm install fetchroids
 ```
 
+or
+
+```bash
+yarn add fetchroids
+```
+
 ## Usage
 
 ```js
