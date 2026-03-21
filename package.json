@@ -20,5 +20,13 @@
     "http"
   ],
   "author": "Victor Ayoola",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/fetchroids.git"
+  },
+  "homepage": "https://github.com/yourusername/fetchroids#readme",
+  "bugs": {
+    "url": "https://github.com/yourusername/fetchroids/issues"
+  }
 }
