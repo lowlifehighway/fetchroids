@@ -23,10 +23,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/fetchroids.git"
+    "url": "git+https://github.com/lowlifehighway/fetchroids.git"
   },
-  "homepage": "https://github.com/yourusername/fetchroids#readme",
+  "homepage": "https://github.com/lowlifehighway/fetchroids#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/fetchroids/issues"
+    "url": "https://github.com/lowlifehighway/fetchroids/issues"
   }
 }
