@@ -210,7 +210,12 @@ npm version patch   # or minor / major
 git push --follow-tags
 ```
 
-CI publishes to npm when the version in `package.json` isn't on npm yet, and skips publishing otherwise.
+When the version in `package.json` isn't on npm yet, CI stages it for publishing. Staged versions aren't public until approved with 2FA:
+
+```bash
+npm stage list fetchroids
+npm stage approve <stage-id>
+```
 
 ## Requirements
 
