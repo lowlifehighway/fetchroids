@@ -201,6 +201,17 @@ npm run typecheck
 npm run build     # emits dist/
 ```
 
+### Releasing
+
+CI tests every push and pull request. To publish, bump the version and push to `main`:
+
+```bash
+npm version patch   # or minor / major
+git push --follow-tags
+```
+
+CI publishes to npm when the version in `package.json` isn't on npm yet, and skips publishing otherwise.
+
 ## Requirements
 
 - Node.js 20.3+ or any modern browser (uses native `fetch`, `AbortSignal.timeout` and `AbortSignal.any`)
