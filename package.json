@@ -1,11 +1,27 @@
 {
   "name": "fetchroids",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A fetch wrapper package to modernize fetch",
   "type": "module",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.3"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc",
+    "test": "node --test \"test/*.test.ts\"",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "fetchroids",
@@ -28,5 +44,9 @@
   "homepage": "https://github.com/lowlifehighway/fetchroids#readme",
   "bugs": {
     "url": "https://github.com/lowlifehighway/fetchroids/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
   }
 }
