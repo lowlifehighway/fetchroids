@@ -212,3 +212,90 @@ test('instances apply and merge defaults', async () => {
   assert.equal(fromChild.data.headers['x-child'], 'yes');
   assert.equal(fromChild.data.body, '[1,2]');
 });
+
+test('request sends any method through a config object', async () => {
+  const { data } = await api.request({
+    url: `${base}/echo`,
+    method: 'put',
+    body: { a: 1 },
+  });
+  assert.equal(data.method, 'PUT');
+  assert.equal(data.body, '{"a":1}');
+});
+
+test('request interceptors can change the request and be ejected', async () => {
+  const client = create({ baseURL: base });
+  const eject = client.interceptors.request.use((config) => {
+    config.headers.set('Authorization', 'Bearer token');
+    config.params.set('via', config.method);
+  });
+  client.interceptors.request.use(async (config) => ({
+    ...config,
+    url: '/echo',
+  }));
+
+  const first = await client.get('/missing');
+  assert.equal(first.data.headers.authorization, 'Bearer token');
+  assert.equal(first.data.search, '?via=GET');
+
+  eject();
+  const second = await client.get('/missing');
+  assert.equal(second.data.headers.authorization, undefined);
+});
+
+test('response interceptors can transform results', async () => {
+  const client = create({ baseURL: base });
+  const seen: string[] = [];
+  client.interceptors.response.use((result, config) => {
+    seen.push(config.url);
+  });
+  client.interceptors.response.use((result) => ({
+    ...result,
+    data: result.data.toUpperCase(),
+  }));
+  const { data } = await client.get('/text');
+  assert.equal(data, 'HELLO');
+  assert.deepEqual(seen, ['/text']);
+});
+
+test('error interceptors can observe, recover and resend', async () => {
+  const client = create({ baseURL: base, retryDelay: 10 });
+  const statuses: number[] = [];
+  client.interceptors.response.use(null, (error) => {
+    if (error instanceof HttpError) statuses.push(error.status);
+  });
+  await assert.rejects(client.get('/404'), HttpError);
+  assert.deepEqual(statuses, [404]);
+
+  let token = 'stale';
+  client.interceptors.request.use((config) => {
+    config.headers.set('X-Token', token);
+  });
+  client.interceptors.response.use(null, (error, config) => {
+    if (error instanceof HttpError && token === 'stale') {
+      token = 'fresh';
+      return client.request({ ...config, url: '/echo' });
+    }
+  });
+  const { data } = await client.get('/404');
+  assert.equal(data.headers['x-token'], 'fresh');
+  assert.equal(data.method, 'GET');
+});
+
+test('child instances inherit interceptors without sharing new ones', async () => {
+  const parent = create({ baseURL: base });
+  parent.interceptors.request.use((config) => {
+    config.headers.set('X-Parent', 'yes');
+  });
+  const child = parent.create();
+  child.interceptors.request.use((config) => {
+    config.headers.set('X-Child', 'yes');
+  });
+
+  const fromChild = await child.get('/echo');
+  assert.equal(fromChild.data.headers['x-parent'], 'yes');
+  assert.equal(fromChild.data.headers['x-child'], 'yes');
+
+  const fromParent = await parent.get('/echo');
+  assert.equal(fromParent.data.headers['x-child'], undefined);
+});

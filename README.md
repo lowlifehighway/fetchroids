@@ -9,6 +9,7 @@ A lightweight, modern fetch wrapper with automatic retries, timeout support, and
 - ✅ Auto-serialises JSON bodies and auto-parses JSON responses
 - ✅ Clean API: `get`, `post`, `put`, `patch`, `delete`
 - ✅ Reusable instances with `baseURL` and default options
+- ✅ Request and response interceptors
 - ✅ Query params
 - ✅ `HttpError` with status, response and parsed error body
 - ✅ 4xx errors fail fast (no retry)
@@ -112,6 +113,42 @@ const uploads = github.create({ timeout: 60000 });
 ```
 
 Absolute URLs ignore `baseURL`.
+
+## Interceptors
+
+Interceptors run before a request is sent and after it settles. Each `use` call returns a function that removes the interceptor.
+
+```js
+import { create, HttpError } from 'fetchroids';
+
+const client = create({ baseURL: 'https://api.example.com' });
+
+// Request: change the config in place, or return a new one
+const eject = client.interceptors.request.use((config) => {
+  config.headers.set('Authorization', `Bearer ${getToken()}`);
+});
+
+// Response: return a new result to replace it, or nothing to keep it
+client.interceptors.response.use((result, config) => {
+  console.log(config.method, config.url, result.response.status);
+});
+
+// Errors: return a result to recover, or nothing to let the error through
+client.interceptors.response.use(null, async (error, config) => {
+  if (error instanceof HttpError && error.status === 401 && !config.retried) {
+    await refreshToken();
+    return client.request({ ...config, retried: true });
+  }
+});
+
+eject();
+```
+
+- `config` is the merged request: `url`, `method`, `headers` (a `Headers` object), `params` (a `URLSearchParams`) and every other option.
+- Request interceptors run once per call, not once per retry attempt.
+- Error interceptors run after retries are exhausted.
+- `client.request(config)` sends a request from a config object and runs the interceptors again, so guard against loops as above.
+- Instances made with `client.create()` start with a copy of the parent's interceptors.
 
 ## Return Value
 

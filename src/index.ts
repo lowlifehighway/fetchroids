@@ -14,18 +14,60 @@ export interface FetchroidsResponse<T> {
   response: Response;
 }
 
+export interface RequestConfig extends RequestOptions {
+  url: string;
+  method: string;
+  headers: Headers;
+  params: URLSearchParams;
+}
+
+type MaybePromise<T> = T | Promise<T>;
+
+export type RequestInterceptor = (
+  config: RequestConfig,
+) => MaybePromise<RequestConfig | void>;
+
+export type ResponseInterceptor = (
+  result: FetchroidsResponse<any>,
+  config: RequestConfig,
+) => MaybePromise<FetchroidsResponse<any> | void>;
+
+export type ErrorInterceptor = (
+  error: unknown,
+  config: RequestConfig,
+) => MaybePromise<FetchroidsResponse<any> | void>;
+
+export interface Interceptors {
+  request: { use: (interceptor: RequestInterceptor) => () => void };
+  response: {
+    use: (
+      onResponse?: ResponseInterceptor | null,
+      onError?: ErrorInterceptor | null,
+    ) => () => void;
+  };
+}
+
+type ResponseHandlers = [
+  onResponse?: ResponseInterceptor | null,
+  onError?: ErrorInterceptor | null,
+];
+
 type Method = <T = any>(
   url: string,
   options?: RequestOptions,
 ) => Promise<FetchroidsResponse<T>>;
 
 export interface Fetchroids {
+  request: <T = any>(
+    config: RequestOptions & { url: string; method?: string },
+  ) => Promise<FetchroidsResponse<T>>;
   get: Method;
   post: Method;
   put: Method;
   patch: Method;
   delete: Method;
   create: (defaults?: RequestOptions) => Fetchroids;
+  interceptors: Interceptors;
 }
 
 export class HttpError<T = any> extends Error {
@@ -104,12 +146,10 @@ function parse(response: Response, text: string) {
   return text ? JSON.parse(text) : null;
 }
 
-async function request<T>(
-  method: string,
-  url: string,
-  options: RequestOptions,
-): Promise<FetchroidsResponse<T>> {
+async function send<T>(config: RequestConfig): Promise<FetchroidsResponse<T>> {
   const {
+    url,
+    method,
     body,
     params,
     baseURL,
@@ -119,7 +159,7 @@ async function request<T>(
     signal,
     headers: userHeaders,
     ...init
-  } = options;
+  } = config;
 
   const headers = new Headers(userHeaders);
   let payload = body as BodyInit | null | undefined;
@@ -163,20 +203,79 @@ async function request<T>(
   }
 }
 
-export function create(defaults: RequestOptions = {}): Fetchroids {
+function register<T>(list: T[], item: T) {
+  list.push(item);
+  return () => {
+    const index = list.indexOf(item);
+    if (index !== -1) list.splice(index, 1);
+  };
+}
+
+function build(
+  defaults: RequestOptions,
+  inheritedRequest: RequestInterceptor[],
+  inheritedResponse: ResponseHandlers[],
+): Fetchroids {
+  const requestInterceptors = [...inheritedRequest];
+  const responseInterceptors = [...inheritedResponse];
+
+  const request: Fetchroids['request'] = async ({ url, method, ...options }) => {
+    let config: RequestConfig = {
+      ...mergeOptions(defaults, options),
+      url,
+      method: (method ?? 'GET').toUpperCase(),
+    };
+    for (const interceptor of [...requestInterceptors]) {
+      config = (await interceptor(config)) ?? config;
+    }
+    let result = send<any>(config);
+    for (const [onResponse, onError] of [...responseInterceptors]) {
+      result = result.then(
+        onResponse &&
+          (async (value) => (await onResponse(value, config)) ?? value),
+        onError &&
+          (async (error) => {
+            const recovered = await onError(error, config);
+            if (recovered === undefined) throw error;
+            return recovered;
+          }),
+      );
+    }
+    return result;
+  };
+
   const method =
     (name: string): Method =>
-    (url, options = {}) =>
-      request(name, url, mergeOptions(defaults, options));
+    (url, options) =>
+      request({ ...options, url, method: name });
 
   return {
+    request,
     get: method('GET'),
     post: method('POST'),
     put: method('PUT'),
     patch: method('PATCH'),
     delete: method('DELETE'),
-    create: (overrides = {}) => create(mergeOptions(defaults, overrides)),
+    create: (overrides = {}) =>
+      build(
+        mergeOptions(defaults, overrides),
+        requestInterceptors,
+        responseInterceptors,
+      ),
+    interceptors: {
+      request: {
+        use: (interceptor) => register(requestInterceptors, interceptor),
+      },
+      response: {
+        use: (onResponse, onError) =>
+          register(responseInterceptors, [onResponse, onError]),
+      },
+    },
   };
+}
+
+export function create(defaults: RequestOptions = {}): Fetchroids {
+  return build(defaults, [], []);
 }
 
 const api = create();
